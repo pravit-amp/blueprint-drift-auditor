@@ -208,7 +208,8 @@
       submit.textContent = "Drifting…";
 
       try {
-        const res = await fetch("/send", {
+        const sendUrl = new URL("send", window.location.href.replace(/\/?$/, "/"));
+        const res = await fetch(sendUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

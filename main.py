@@ -18,7 +18,7 @@ _embeddings_fallback_warned = False
 
 EMBED_MODEL = "text-embedding-3-small"
 
-PERSONA_URL_ENVS = ("OPTIMIST_URL", "CYNIC_URL", "POET_URL")
+PERSONA_URL_ENVS = ("OPTIMIST_URL", "CYNIC_URL")
 
 
 class SendRequest(BaseModel):

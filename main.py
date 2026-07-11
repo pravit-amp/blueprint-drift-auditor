@@ -2,25 +2,56 @@ import math
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+import httpx
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 app = FastAPI(title="Message in a Bottle")
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-SYSTEM_PROMPT = (
-    "Paraphrase the following message in your own words. "
-    "Keep it roughly the same length. Do not explain, just paraphrase."
-)
 CHAT_MODEL = "gpt-4o-mini"
 EMBED_MODEL = "text-embedding-3-small"
+
+PERSONA_PROMPTS = {
+    "optimist": (
+        "Paraphrase the following message with an overly positive, upbeat spin. "
+        "Keep it roughly the same length."
+    ),
+    "cynic": (
+        "Paraphrase the following message with a skeptical, cynical tone. "
+        "Keep it roughly the same length."
+    ),
+    "poet": (
+        "Paraphrase the following message in dramatic, flowery, poetic language. "
+        "Keep it roughly the same length."
+    ),
+}
+
+PERSONA_URL_ENVS = ("OPTIMIST_URL", "CYNIC_URL", "POET_URL")
+
+
+class WebhookRequest(BaseModel):
+    text: str
+
+
+class WebhookResponse(BaseModel):
+    text: str
 
 
 class SendRequest(BaseModel):
     message: str
-    chain_length: int = Field(default=6, ge=1)
+
+
+def get_system_prompt() -> str:
+    persona = os.environ.get("PERSONA", "").strip().lower()
+    if persona not in PERSONA_PROMPTS:
+        raise HTTPException(
+            status_code=500,
+            detail=f"PERSONA must be one of {sorted(PERSONA_PROMPTS)}; got {persona!r}",
+        )
+    return PERSONA_PROMPTS[persona]
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -32,27 +63,32 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-def paraphrase(text: str) -> str:
-    response = client.chat.completions.create(
-        model=CHAT_MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ],
-    )
-    return response.choices[0].message.content.strip()
-
-
 def embed_texts(texts: list[str]) -> list[list[float]]:
     response = client.embeddings.create(model=EMBED_MODEL, input=texts)
     return [item.embedding for item in response.data]
 
 
-def run_chain(message: str, chain_length: int) -> dict:
+def call_persona_webhook(base_url: str, text: str) -> str:
+    url = base_url.rstrip("/") + "/webhook"
+    with httpx.Client(timeout=60.0) as http:
+        response = http.post(url, json={"text": text})
+        response.raise_for_status()
+        data = response.json()
+    return data["text"]
+
+
+def run_chain(message: str) -> dict:
+    urls = []
+    for name in PERSONA_URL_ENVS:
+        value = os.environ.get(name, "").strip()
+        if not value:
+            raise HTTPException(status_code=500, detail=f"{name} is not set")
+        urls.append(value)
+
     intermediates: list[str] = []
     current = message
-    for _ in range(chain_length):
-        current = paraphrase(current)
+    for base_url in urls:
+        current = call_persona_webhook(base_url, current)
         intermediates.append(current)
 
     all_texts = [message] + intermediates
@@ -76,11 +112,19 @@ def index():
     return FileResponse(Path(__file__).parent / "index.html")
 
 
+@app.post("/webhook", response_model=WebhookResponse)
+def webhook(body: WebhookRequest):
+    system_prompt = get_system_prompt()
+    response = client.chat.completions.create(
+        model=CHAT_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": body.text},
+        ],
+    )
+    return {"text": response.choices[0].message.content.strip()}
+
+
 @app.post("/send")
 def send(body: SendRequest):
-    return run_chain(body.message, body.chain_length)
-
-
-@app.post("/webhook")
-def webhook(body: SendRequest):
-    return run_chain(body.message, body.chain_length)
+    return run_chain(body.message)

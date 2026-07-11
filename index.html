@@ -30,10 +30,7 @@
       padding: 2rem 1.25rem 4rem;
     }
 
-    .wrap {
-      max-width: 640px;
-      margin: 0 auto;
-    }
+    .wrap { max-width: 640px; margin: 0 auto; }
 
     h1 {
       font-size: 1.75rem;
@@ -55,8 +52,10 @@
       margin-bottom: 0.4rem;
     }
 
-    textarea, input[type="number"] {
+    textarea {
       width: 100%;
+      min-height: 110px;
+      resize: vertical;
       background: rgba(0, 0, 0, 0.25);
       border: 1px solid rgba(232, 244, 248, 0.15);
       border-radius: 10px;
@@ -64,28 +63,14 @@
       padding: 0.75rem 0.9rem;
       font-size: 1rem;
       font-family: inherit;
+      line-height: 1.45;
       margin-bottom: 1rem;
     }
 
-    textarea {
-      min-height: 110px;
-      resize: vertical;
-      line-height: 1.45;
-    }
-
-    textarea:focus, input:focus {
+    textarea:focus {
       outline: none;
       border-color: var(--accent);
     }
-
-    .row {
-      display: flex;
-      gap: 1rem;
-      align-items: flex-end;
-      margin-bottom: 0.5rem;
-    }
-
-    .row .field { flex: 0 0 120px; }
 
     button {
       background: var(--accent);
@@ -96,12 +81,9 @@
       font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
-      margin-top: 0.25rem;
-      transition: opacity 0.15s, transform 0.1s;
     }
 
     button:hover:not(:disabled) { opacity: 0.9; }
-    button:active:not(:disabled) { transform: scale(0.98); }
     button:disabled { opacity: 0.5; cursor: wait; }
 
     .error {
@@ -111,7 +93,6 @@
     }
 
     #results { margin-top: 2.5rem; display: none; }
-
     #results.visible { display: block; }
 
     .section-label {
@@ -127,7 +108,6 @@
       border-radius: 14px 14px 14px 4px;
       padding: 0.9rem 1rem;
       margin-bottom: 0.85rem;
-      position: relative;
       line-height: 1.5;
       animation: rise 0.35s ease both;
     }
@@ -183,19 +163,11 @@
 <body>
   <div class="wrap">
     <h1>Message in a Bottle</h1>
-    <p class="tagline">Watch a message drift as it passes through a chain of paraphrases.</p>
+    <p class="tagline">Watch a message drift through optimist → cynic → poet.</p>
 
     <form id="form">
       <label for="message">Your message</label>
       <textarea id="message" required placeholder="Cast a message into the sea…"></textarea>
-
-      <div class="row">
-        <div class="field">
-          <label for="chain_length">Chain length</label>
-          <input type="number" id="chain_length" min="1" max="20" value="6" />
-        </div>
-      </div>
-
       <button type="submit" id="submit">Send it down the line</button>
     </form>
 
@@ -211,6 +183,8 @@
   </div>
 
   <script>
+    const HOP_LABELS = ["Optimist", "Cynic", "Poet"];
+
     function simClass(score) {
       if (score >= 0.85) return "green";
       if (score >= 0.7) return "yellow";
@@ -239,13 +213,14 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: document.getElementById("message").value,
-            chain_length: Number(document.getElementById("chain_length").value) || 6,
           }),
         });
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || res.statusText || "Request failed");
+          throw new Error(
+            typeof err.detail === "string" ? err.detail : (res.statusText || "Request failed")
+          );
         }
 
         const data = await res.json();
@@ -263,9 +238,10 @@
           bubble.className = "bubble";
           bubble.style.animationDelay = `${i * 0.06}s`;
           const cls = simClass(hop.similarity_to_original);
+          const label = HOP_LABELS[i] || `Hop ${hop.hop}`;
           bubble.innerHTML =
             `<div class="bubble-meta">` +
-            `<span>Hop ${hop.hop}</span>` +
+            `<span>${label}</span>` +
             `<span class="sim ${cls}">${fmt(hop.similarity_to_original)}</span>` +
             `</div>` +
             `<div></div>`;

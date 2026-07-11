@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Message in a Bottle</title>
+  <style>
+    :root {
+      --bg: #0c1a24;
+      --bg-mid: #143044;
+      --foam: #e8f4f8;
+      --muted: #8aadb8;
+      --accent: #3db8a0;
+      --bubble: #1a3a4a;
+      --original: #243d4f;
+      --red: #e85d5d;
+      --yellow: #e8c15d;
+      --green: #4ecf8a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--foam);
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, #1a4a5c 0%, transparent 55%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-mid) 100%);
+      padding: 2rem 1.25rem 4rem;
+    }
+
+    .wrap {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.35rem;
+    }
+
+    .tagline {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 1.75rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    textarea, input[type="number"] {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(232, 244, 248, 0.15);
+      border-radius: 10px;
+      color: var(--foam);
+      padding: 0.75rem 0.9rem;
+      font-size: 1rem;
+      font-family: inherit;
+      margin-bottom: 1rem;
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .row {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-end;
+      margin-bottom: 0.5rem;
+    }
+
+    .row .field { flex: 0 0 120px; }
+
+    button {
+      background: var(--accent);
+      color: #062018;
+      border: none;
+      border-radius: 10px;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.25rem;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    button:hover:not(:disabled) { opacity: 0.9; }
+    button:active:not(:disabled) { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: wait; }
+
+    .error {
+      color: var(--red);
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+
+    #results { margin-top: 2.5rem; display: none; }
+
+    #results.visible { display: block; }
+
+    .section-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .bubble {
+      background: var(--bubble);
+      border-radius: 14px 14px 14px 4px;
+      padding: 0.9rem 1rem;
+      margin-bottom: 0.85rem;
+      position: relative;
+      line-height: 1.5;
+      animation: rise 0.35s ease both;
+    }
+
+    .bubble.original {
+      background: var(--original);
+      border: 1px solid rgba(61, 184, 160, 0.35);
+      border-radius: 14px;
+      margin-bottom: 1.5rem;
+    }
+
+    .bubble-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .sim {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sim.green { color: var(--green); }
+    .sim.yellow { color: var(--yellow); }
+    .sim.red { color: var(--red); }
+
+    .final {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(232, 244, 248, 0.1);
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .final strong { color: var(--foam); }
+
+    .connector {
+      width: 2px;
+      height: 12px;
+      background: rgba(232, 244, 248, 0.12);
+      margin: -0.35rem auto 0.5rem 1.25rem;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Message in a Bottle</h1>
+    <p class="tagline">Watch a message drift as it passes through a chain of paraphrases.</p>
+
+    <form id="form">
+      <label for="message">Your message</label>
+      <textarea id="message" required placeholder="Cast a message into the sea…"></textarea>
+
+      <div class="row">
+        <div class="field">
+          <label for="chain_length">Chain length</label>
+          <input type="number" id="chain_length" min="1" max="20" value="6" />
+        </div>
+      </div>
+
+      <button type="submit" id="submit">Send it down the line</button>
+    </form>
+
+    <p class="error" id="error" hidden></p>
+
+    <div id="results">
+      <div class="section-label">Original</div>
+      <div class="bubble original" id="original"></div>
+      <div class="section-label">The chain</div>
+      <div id="chain"></div>
+      <p class="final" id="final"></p>
+    </div>
+  </div>
+
+  <script>
+    function simClass(score) {
+      if (score >= 0.85) return "green";
+      if (score >= 0.7) return "yellow";
+      return "red";
+    }
+
+    function fmt(score) {
+      return (score * 100).toFixed(1) + "%";
+    }
+
+    const form = document.getElementById("form");
+    const submit = document.getElementById("submit");
+    const errorEl = document.getElementById("error");
+    const results = document.getElementById("results");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.hidden = true;
+      results.classList.remove("visible");
+      submit.disabled = true;
+      submit.textContent = "Drifting…";
+
+      try {
+        const res = await fetch("/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: document.getElementById("message").value,
+            chain_length: Number(document.getElementById("chain_length").value) || 6,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || res.statusText || "Request failed");
+        }
+
+        const data = await res.json();
+        document.getElementById("original").textContent = data.original;
+
+        const chainEl = document.getElementById("chain");
+        chainEl.innerHTML = "";
+        data.chain.forEach((hop, i) => {
+          if (i > 0) {
+            const conn = document.createElement("div");
+            conn.className = "connector";
+            chainEl.appendChild(conn);
+          }
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.style.animationDelay = `${i * 0.06}s`;
+          const cls = simClass(hop.similarity_to_original);
+          bubble.innerHTML =
+            `<div class="bubble-meta">` +
+            `<span>Hop ${hop.hop}</span>` +
+            `<span class="sim ${cls}">${fmt(hop.similarity_to_original)}</span>` +
+            `</div>` +
+            `<div></div>`;
+          bubble.lastElementChild.textContent = hop.text;
+          chainEl.appendChild(bubble);
+        });
+
+        const finalCls = simClass(data.final_similarity);
+        document.getElementById("final").innerHTML =
+          `Final similarity to original: <strong class="sim ${finalCls}">${fmt(data.final_similarity)}</strong>`;
+
+        results.classList.add("visible");
+      } catch (err) {
+        errorEl.textContent = err.message || String(err);
+        errorEl.hidden = false;
+      } finally {
+        submit.disabled = false;
+        submit.textContent = "Send it down the line";
+      }
+    });
+  </script>
+</body>
+</html>

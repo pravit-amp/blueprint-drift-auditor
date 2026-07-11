@@ -105,3 +105,13 @@ def webhook(body: SendRequest):
 @app.post("/send")
 def send(body: SendRequest):
     return run_chain(body.message)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", "3000")),
+    )

@@ -3,11 +3,11 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && /usr/local/bin/python -c "import fastapi, uvicorn, openai"
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py index.html ./
+COPY main.py index.html start.sh ./
+RUN chmod +x start.sh
 
 EXPOSE 3000
 
-CMD ["/usr/local/bin/python", "/app/main.py"]
+CMD ["./start.sh"]

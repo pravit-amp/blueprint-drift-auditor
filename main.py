@@ -16,47 +16,13 @@ client = OpenAI(
 )
 _embeddings_fallback_warned = False
 
-CHAT_MODEL = "gpt-4o-mini"
 EMBED_MODEL = "text-embedding-3-small"
-
-PERSONA_PROMPTS = {
-    "optimist": (
-        "Paraphrase the following message with an overly positive, upbeat spin. "
-        "Keep it roughly the same length."
-    ),
-    "cynic": (
-        "Paraphrase the following message with a skeptical, cynical tone. "
-        "Keep it roughly the same length."
-    ),
-    "poet": (
-        "Paraphrase the following message in dramatic, flowery, poetic language. "
-        "Keep it roughly the same length."
-    ),
-}
 
 PERSONA_URL_ENVS = ("OPTIMIST_URL", "CYNIC_URL", "POET_URL")
 
 
-class WebhookRequest(BaseModel):
-    text: str
-
-
-class WebhookResponse(BaseModel):
-    text: str
-
-
 class SendRequest(BaseModel):
     message: str
-
-
-def get_system_prompt() -> str:
-    persona = os.environ.get("PERSONA", "").strip().lower()
-    if persona not in PERSONA_PROMPTS:
-        raise HTTPException(
-            status_code=500,
-            detail=f"PERSONA must be one of {sorted(PERSONA_PROMPTS)}; got {persona!r}",
-        )
-    return PERSONA_PROMPTS[persona]
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -131,17 +97,9 @@ def index():
     return FileResponse(Path(__file__).parent / "index.html")
 
 
-@app.post("/webhook", response_model=WebhookResponse)
-def webhook(body: WebhookRequest):
-    system_prompt = get_system_prompt()
-    response = client.chat.completions.create(
-        model=CHAT_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": body.text},
-        ],
-    )
-    return {"text": response.choices[0].message.content.strip()}
+@app.post("/webhook")
+def webhook(body: SendRequest):
+    return run_chain(body.message)
 
 
 @app.post("/send")

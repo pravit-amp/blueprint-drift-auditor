@@ -1,5 +1,6 @@
 import math
 import os
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import httpx
@@ -9,7 +10,11 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 app = FastAPI(title="Message in a Bottle")
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+client = OpenAI(
+    api_key=os.environ.get("OPENAI_API_KEY"),
+    base_url=os.environ.get("OPENAI_BASE_URL"),
+)
+_embeddings_fallback_warned = False
 
 CHAT_MODEL = "gpt-4o-mini"
 EMBED_MODEL = "text-embedding-3-small"
@@ -91,14 +96,28 @@ def run_chain(message: str) -> dict:
         current = call_persona_webhook(base_url, current)
         intermediates.append(current)
 
-    all_texts = [message] + intermediates
-    embeddings = embed_texts(all_texts)
-    original_emb = embeddings[0]
+    try:
+        all_texts = [message] + intermediates
+        embeddings = embed_texts(all_texts)
+        original_emb = embeddings[0]
+        similarities = [
+            cosine_similarity(original_emb, embeddings[i + 1])
+            for i in range(len(intermediates))
+        ]
+    except Exception:
+        global _embeddings_fallback_warned
+        if not _embeddings_fallback_warned:
+            print("embeddings endpoint unavailable, falling back to text similarity.")
+            _embeddings_fallback_warned = True
+        similarities = [
+            SequenceMatcher(None, message, text).ratio() for text in intermediates
+        ]
 
     chain = []
     for i, text in enumerate(intermediates):
-        sim = cosine_similarity(original_emb, embeddings[i + 1])
-        chain.append({"hop": i + 1, "text": text, "similarity_to_original": sim})
+        chain.append(
+            {"hop": i + 1, "text": text, "similarity_to_original": similarities[i]}
+        )
 
     return {
         "original": message,
